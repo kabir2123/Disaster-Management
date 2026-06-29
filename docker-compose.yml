@@ -1,0 +1,85 @@
+services:
+  resq-dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: resq_dynamodb
+    restart: unless-stopped
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "8008:8000"
+
+  resq-dynamodb-init:
+    image: amazon/aws-cli:2.17.49
+    container_name: resq_dynamodb_init
+    depends_on:
+      resq-dynamodb:
+        condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+      DYNAMODB_ENDPOINT_URL: http://resq-dynamodb:8000
+      USERS_TABLE: resq-users
+      INCIDENTS_TABLE: resq-incidents
+      RESOURCES_TABLE: resq-resources
+    volumes:
+      - ./scripts/dynamodb-init.sh:/scripts/dynamodb-init.sh:ro
+    entrypoint: ["/bin/sh", "/scripts/dynamodb-init.sh"]
+    restart: "no"
+
+  resq-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: resq-api:local
+    container_name: resq_api
+    restart: unless-stopped
+    depends_on:
+      resq-dynamodb-init:
+        condition: service_completed_successfully
+    ports:
+      - "8088:8080"
+    environment:
+      PORT: "8080"
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_SDK_LOAD_CONFIG: "1"
+      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-http://resq-dynamodb:8000}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      USERS_TABLE: ${USERS_TABLE:-resq-users}
+      INCIDENTS_TABLE: ${INCIDENTS_TABLE:-resq-incidents}
+      RESOURCES_TABLE: ${RESOURCES_TABLE:-resq-resources}
+      EVIDENCE_BUCKET: ${EVIDENCE_BUCKET:-resq-evidence}
+      EVIDENCE_STORAGE_MODE: ${EVIDENCE_STORAGE_MODE:-local}
+      SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  resq-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8088}
+    image: resq-frontend:local
+    container_name: resq_frontend
+    restart: unless-stopped
+    depends_on:
+      resq-api:
+        condition: service_healthy
+    ports:
+      - "3008:3000"
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8088}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3

@@ -1,0 +1,7 @@
+# test log
+getenv JWT_SECRET
+getenv JWT_SECRET
+getenv JWT_SECRET
+getenv JWT_SECRET
+getenv JWT_SECRET
+getenv JWT_SECRET

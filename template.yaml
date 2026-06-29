@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ResQ - serverless disaster response backend (free-tier friendly)
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W3005
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 128
+    Runtime: provided.al2023
+    Architectures: [arm64]
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        INCIDENTS_TABLE: !Ref IncidentsTable
+        RESOURCES_TABLE: !Ref ResourcesTable
+        EVIDENCE_BUCKET: !Ref EvidenceBucket
+        SNS_TOPIC_ARN: !Ref AlertsTopic
+        JWT_SECRET: !Ref JWTSecret
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PATCH,OPTIONS'"
+      AllowHeaders: "'Authorization,Content-Type'"
+      AllowOrigin: "'*'"
+
+Parameters:
+  JWTSecret:
+    Type: String
+    NoEcho: true
+    Default: change-me-in-production
+
+Resources:
+  ResQApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Auth:
+        ApiKeyRequired: false
+        UsagePlan:
+          CreateUsagePlan: PER_API
+      Cors:
+        AllowMethods: "'GET,POST,PATCH,OPTIONS'"
+        AllowHeaders: "'Authorization,Content-Type'"
+        AllowOrigin: "'*'"
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncidentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResourcesTable
+        - S3WritePolicy:
+            BucketName: !Ref EvidenceBucket
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertsTopic.TopicName
+      Events:
+        Proxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResQApi
+            Path: /{proxy+}
+            Method: ANY
+        Root:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResQApi
+            Path: /
+            Method: ANY
+    Metadata:
+      BuildMethod: makefile
+
+  EscalationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncidentsTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertsTopic.TopicName
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Description: Escalate unresolved incidents after 30 minutes
+    Metadata:
+      BuildMethod: makefile
+
+  SmsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Environment:
+        Variables:
+          DEFAULT_DISTRICT_ID: default
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IncidentsTable
+      Events:
+        SmsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResQApi
+            Path: /sms/ingest
+            Method: POST
+            Auth:
+              ApiKeyRequired: true
+    Metadata:
+      BuildMethod: makefile
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      AttributeDefinitions:
+        - AttributeName: userID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userID
+          KeyType: HASH
+
+  IncidentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      AttributeDefinitions:
+        - AttributeName: districtID
+          AttributeType: S
+        - AttributeName: incidentID
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: updatedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: districtID
+          KeyType: HASH
+        - AttributeName: incidentID
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: updatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+
+  ResourcesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      AttributeDefinitions:
+        - AttributeName: districtID
+          AttributeType: S
+        - AttributeName: resourceID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: districtID
+          KeyType: HASH
+        - AttributeName: resourceID
+          KeyType: RANGE
+
+  EvidenceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: ResQ Alerts
+
+Outputs:
+  ApiUrl:
+    Description: REST API base URL (includes /prod stage)
+    Value: !Sub https://${ResQApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+  SmsIngestPath:
+    Description: SMS ingest requires the API key created by the API Gateway usage plan
+    Value: !Sub https://${ResQApi}.execute-api.${AWS::Region}.amazonaws.com/prod/sms/ingest
+  AlertsTopicArn:
+    Description: Subscribe an email to this SNS topic for free alerts
+    Value: !Ref AlertsTopic
+  EvidenceBucketName:
+    Value: !Ref EvidenceBucket

@@ -1,0 +1,12 @@
+# Copy to samconfig.toml and adjust, or use: make sam-deploy
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "resq"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+parameter_overrides = "JWTSecret=change-me-in-production"
+
+[default.global.parameters]
+region = "us-east-1"

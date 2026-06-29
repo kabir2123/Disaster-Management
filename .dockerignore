@@ -1,0 +1,13 @@
+.aws-sam/
+.git/
+.gocache/
+frontend/.git/
+frontend/.next/
+frontend/node_modules/
+bin/
+coverage.out
+samconfig.toml
+*.log
+Dockerfile
+docker-compose.yml
+README_DOCKER.md
