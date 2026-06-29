@@ -1,0 +1,9 @@
+.env.local
+.git/
+.next/
+node_modules/
+npm-debug.log*
+Dockerfile
+README.md
+CLAUDE.md
+AGENTS.md

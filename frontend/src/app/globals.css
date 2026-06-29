@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* DashStack + Cyclone Ready design tokens */
+:root {
+  --background: #f4f7fe;
+  --foreground: #2b3674;
+  --surface: #ffffff;
+  --sidebar: #1b2559;
+  --sidebar-hover: #24357a;
+  --sidebar-active: #4318ff;
+  --primary: #4318ff;
+  --primary-hover: #3311db;
+  --primary-light: #e9e3ff;
+  --muted: #a3aed0;
+  --border: #e0e5f2;
+  --success: #05cd99;
+  --warning: #ffb020;
+  --danger: #e53935;
+  --alert: #ff6b35;
+  --info: #4880ff;
+  --card-shadow: 0 18px 40px rgba(112, 144, 176, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-alert: var(--alert);
+  --color-info: var(--info);
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: var(--card-shadow);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@keyframes pulse-alert {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-alert {
+  animation: pulse-alert 2s ease-in-out infinite;
+}
