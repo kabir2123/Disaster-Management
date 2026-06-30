@@ -45,6 +45,17 @@ type Incident struct {
 	ResolveNote  string   `dynamodbav:"resolveNote,omitempty" json:"resolveNote,omitempty"`
 }
 
+type EvidenceFile struct {
+	Key string `json:"key"`
+	URL string `json:"url,omitempty"`
+}
+
+type IncidentResponse struct {
+	Incident
+	ReporterName  string         `json:"reporterName,omitempty"`
+	EvidenceFiles []EvidenceFile `json:"evidenceFiles,omitempty"`
+}
+
 type Resource struct {
 	DistrictID    string `dynamodbav:"districtID" json:"districtID"`
 	ResourceID    string `dynamodbav:"resourceID" json:"resourceID"`

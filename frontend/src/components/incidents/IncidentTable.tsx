@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Incident } from "@/lib/types/models";
+import { evidenceURL, isImageEvidence } from "@/lib/api/incidents";
 import { SeverityBadge } from "./SeverityBadge";
 import { StatusBadge } from "./StatusBadge";
 
@@ -29,6 +30,8 @@ export function IncidentTable({ incidents, showActions = true }: IncidentTablePr
           <thead>
             <tr className="border-b border-border bg-background/50">
               <th className="px-6 py-4 font-bold text-muted">Location</th>
+              <th className="px-6 py-4 font-bold text-muted">Citizen</th>
+              <th className="px-6 py-4 font-bold text-muted">Evidence</th>
               <th className="px-6 py-4 font-bold text-muted">Severity</th>
               <th className="px-6 py-4 font-bold text-muted">Status</th>
               <th className="px-6 py-4 font-bold text-muted">Reported</th>
@@ -51,6 +54,15 @@ export function IncidentTable({ incidents, showActions = true }: IncidentTablePr
                       {incident.description}
                     </p>
                   )}
+                </td>
+                <td className="px-6 py-4 text-muted">
+                  <p className="font-semibold text-foreground">
+                    {incident.reporterName || "Unknown"}
+                  </p>
+                  <p className="font-mono text-xs">{incident.reporterID.slice(0, 8)}…</p>
+                </td>
+                <td className="px-6 py-4">
+                  <EvidenceSummary incident={incident} />
                 </td>
                 <td className="px-6 py-4">
                   <SeverityBadge severity={incident.severity} />
@@ -81,4 +93,39 @@ export function IncidentTable({ incidents, showActions = true }: IncidentTablePr
       </div>
     </div>
   );
+}
+
+function EvidenceSummary({ incident }: { incident: Incident }) {
+  const files =
+    incident.evidenceFiles ??
+    incident.evidenceKeys?.map((key) => ({ key })) ??
+    [];
+
+  if (files.length === 0) {
+    return <span className="text-muted">—</span>;
+  }
+
+  const first = files[0];
+  const src = evidenceURL(first.key, first.url);
+  const label = files.length > 1 ? `${files.length} files` : evidenceFilename(first.key);
+
+  if (src && isImageEvidence(src, first.key)) {
+    return (
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={evidenceFilename(first.key)}
+          className="h-10 w-14 rounded-lg object-cover"
+        />
+        <span className="text-xs font-semibold text-muted">{label}</span>
+      </div>
+    );
+  }
+
+  return <span className="text-xs font-semibold text-muted">{label}</span>;
+}
+
+function evidenceFilename(key: string): string {
+  return key.split("/").at(-1)?.replace(/^[a-f0-9-]+-/, "") ?? "Evidence file";
 }

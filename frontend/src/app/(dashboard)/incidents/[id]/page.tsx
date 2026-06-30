@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, FileText, Image as ImageIcon, Upload } from "lucide-react";
@@ -19,8 +19,10 @@ import {
 import { ApiClientError } from "@/lib/api/client";
 import {
   assignIncident,
+  evidenceURL,
   getIncident,
   getLocalEvidenceDataURL,
+  isImageEvidence,
   requestEvidenceUpload,
   resolveIncident,
   uploadEvidenceFile,
@@ -40,7 +42,8 @@ export default function IncidentDetailPage() {
   const [resolveNote, setResolveNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
-  const evidenceKeys = incident?.evidenceKeys;
+  const [uploadedPreviews, setUploadedPreviews] = useState<Record<string, string>>({});
+  const canUploadEvidence = claims?.role !== "coordinator";
 
   useEffect(() => {
     if (!districtID || !incidentID) return;
@@ -50,18 +53,6 @@ export default function IncidentDetailPage() {
       .catch((err) => setError(err.message ?? "Incident not found"))
       .finally(() => setLoading(false));
   }, [districtID, incidentID]);
-
-  const evidencePreviews = useMemo(() => {
-    if (!evidenceKeys?.length) return {};
-    return evidenceKeys.reduce<Record<string, string>>(
-      (acc, key) => {
-        const dataURL = getLocalEvidenceDataURL(key);
-        if (dataURL) acc[key] = dataURL;
-        return acc;
-      },
-      {}
-    );
-  }, [evidenceKeys]);
 
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault();
@@ -94,24 +85,41 @@ export default function IncidentDetailPage() {
   }
 
   async function handleEvidenceUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadStatus("Uploading…");
     setError("");
     try {
-      const { uploadURL } = await requestEvidenceUpload(
+      const { uploadURL, key } = await requestEvidenceUpload(
         districtID,
         incidentID,
         file.name
       );
       await uploadEvidenceFile(uploadURL, file);
-      const refreshed = await getIncident(districtID, incidentID);
-      setIncident(refreshed);
+      const preview = getLocalEvidenceDataURL(key);
+      if (preview) {
+        setUploadedPreviews((current) => ({ ...current, [key]: preview }));
+      }
+      setIncident((current) => {
+        if (!current) return current;
+        const evidenceKeys = current.evidenceKeys ?? [];
+        if (evidenceKeys.includes(key)) return current;
+        return { ...current, evidenceKeys: [...evidenceKeys, key] };
+      });
       setUploadStatus("Evidence uploaded successfully");
+
+      getIncident(districtID, incidentID)
+        .then(setIncident)
+        .catch(() => {
+          // The upload already completed; keep the optimistic evidence preview visible.
+        });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
       setUploadStatus("");
+    } finally {
+      input.value = "";
     }
   }
 
@@ -185,7 +193,10 @@ export default function IncidentDetailPage() {
             </div>
             <div>
               <dt className="text-xs font-bold uppercase text-muted">Reporter</dt>
-              <dd className="mt-1 font-mono text-xs">{incident.reporterID}</dd>
+              <dd className="mt-1 text-sm font-semibold">
+                {incident.reporterName || "Unknown citizen"}
+              </dd>
+              <dd className="mt-1 font-mono text-xs text-muted">{incident.reporterID}</dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-xs font-bold uppercase text-muted">Description</dt>
@@ -253,33 +264,38 @@ export default function IncidentDetailPage() {
 
           <Card>
             <CardHeader title="Evidence" />
-            <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border py-8 hover:border-primary/40 hover:bg-primary-light/20 transition-all">
-              <Upload className="h-8 w-8 text-muted" />
-              <span className="text-sm font-semibold text-muted">
-                Upload photo or document
-              </span>
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*,.pdf"
-                onChange={handleEvidenceUpload}
-              />
-            </label>
+            {canUploadEvidence && (
+              <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border py-8 hover:border-primary/40 hover:bg-primary-light/20 transition-all">
+                <Upload className="h-8 w-8 text-muted" />
+                <span className="text-sm font-semibold text-muted">
+                  Upload photo or document
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*,.pdf"
+                  onChange={handleEvidenceUpload}
+                />
+              </label>
+            )}
             {uploadStatus && (
               <p className="mt-3 text-sm font-medium text-success">{uploadStatus}</p>
             )}
-            {incident.evidenceKeys && incident.evidenceKeys.length > 0 && (
+            {evidenceItems(incident).length > 0 && (
               <ul className="mt-4 space-y-3">
-                {incident.evidenceKeys.map((key) => (
+                {evidenceItems(incident).map(({ key, url }) => {
+                  const src = uploadedPreviews[key] || evidenceURL(key, url);
+                  const isImage = src && isImageEvidence(src, key);
+                  return (
                   <li
                     key={key}
                     className="overflow-hidden rounded-xl border border-border bg-background"
                   >
-                    {evidencePreviews[key]?.startsWith("data:image/") ? (
+                    {isImage ? (
                       <div>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={evidencePreviews[key]}
+                          src={src}
                           alt={evidenceFilename(key)}
                           className="h-44 w-full object-cover"
                         />
@@ -304,7 +320,8 @@ export default function IncidentDetailPage() {
                       </div>
                     )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </Card>
@@ -322,4 +339,12 @@ export default function IncidentDetailPage() {
 
 function evidenceFilename(key: string): string {
   return key.split("/").at(-1)?.replace(/^[a-f0-9-]+-/, "") ?? "Evidence file";
+}
+
+function evidenceItems(incident: Incident): { key: string; url?: string }[] {
+  return (
+    incident.evidenceFiles ??
+    incident.evidenceKeys?.map((key) => ({ key })) ??
+    []
+  );
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -45,11 +46,11 @@ func (h *Handler) Router() http.Handler {
 	}
 
 	mux.HandleFunc("POST /incident/report", auth(h.reportIncident, models.RoleCitizen, models.RoleAdmin, models.RoleResponder))
-	mux.HandleFunc("GET /incident/{district}", auth(h.listIncidents, models.RoleAdmin, models.RoleResponder, models.RoleCoordinator))
+	mux.HandleFunc("GET /incident/{district}", auth(h.listIncidents, models.RoleAdmin, models.RoleResponder, models.RoleCoordinator, models.RoleCitizen))
 	mux.HandleFunc("GET /incident/{district}/{id}", auth(h.getIncident, models.RoleAdmin, models.RoleResponder, models.RoleCitizen, models.RoleCoordinator))
 	mux.HandleFunc("PATCH /incident/{district}/{id}/assign", auth(h.assignIncident, models.RoleAdmin))
 	mux.HandleFunc("PATCH /incident/{district}/{id}/resolve", auth(h.resolveIncident, models.RoleAdmin, models.RoleResponder))
-	mux.HandleFunc("POST /incident/{district}/{id}/evidence", auth(h.uploadEvidence, models.RoleCitizen, models.RoleAdmin, models.RoleResponder, models.RoleCoordinator))
+	mux.HandleFunc("POST /incident/{district}/{id}/evidence", auth(h.uploadEvidence, models.RoleCitizen, models.RoleAdmin, models.RoleResponder))
 
 	mux.HandleFunc("POST /resource/register", auth(h.registerResource, models.RoleAdmin, models.RoleCoordinator))
 	mux.HandleFunc("GET /resource/{district}", auth(h.listResources, models.RoleAdmin, models.RoleCoordinator, models.RoleResponder))
@@ -222,7 +223,8 @@ func (h *Handler) listIncidents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, incidents)
+	responses := h.incidentResponses(r.Context(), incidents)
+	writeJSON(w, http.StatusOK, responses)
 }
 
 func (h *Handler) getIncident(w http.ResponseWriter, r *http.Request) {
@@ -242,11 +244,33 @@ func (h *Handler) getIncident(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if claims.Role == models.RoleCitizen && incident.ReporterID != claims.UserID {
-		writeError(w, http.StatusForbidden, "forbidden")
-		return
+	writeJSON(w, http.StatusOK, h.incidentResponse(r.Context(), *incident))
+}
+
+func (h *Handler) incidentResponses(ctx context.Context, incidents []models.Incident) []models.IncidentResponse {
+	responses := make([]models.IncidentResponse, 0, len(incidents))
+	for _, incident := range incidents {
+		responses = append(responses, h.incidentResponse(ctx, incident))
 	}
-	writeJSON(w, http.StatusOK, incident)
+	return responses
+}
+
+func (h *Handler) incidentResponse(ctx context.Context, incident models.Incident) models.IncidentResponse {
+	response := models.IncidentResponse{Incident: incident}
+	if user, err := h.store.GetUserByID(ctx, incident.ReporterID); err == nil {
+		response.ReporterName = user.Name
+	}
+	if len(incident.EvidenceKeys) > 0 {
+		response.EvidenceFiles = make([]models.EvidenceFile, 0, len(incident.EvidenceKeys))
+		for _, key := range incident.EvidenceKeys {
+			file := models.EvidenceFile{Key: key}
+			if url, err := h.evidence.PresignDownload(ctx, key); err == nil {
+				file.URL = url
+			}
+			response.EvidenceFiles = append(response.EvidenceFiles, file)
+		}
+	}
+	return response
 }
 
 type assignRequest struct {

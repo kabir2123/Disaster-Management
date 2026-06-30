@@ -54,3 +54,17 @@ func (e *Evidence) PresignUpload(ctx context.Context, districtID, incidentID, fi
 	}
 	return out.URL, key, nil
 }
+
+func (e *Evidence) PresignDownload(ctx context.Context, key string) (string, error) {
+	if e.mode == "local" {
+		return "local-evidence://" + key, nil
+	}
+	out, err := e.presign.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(e.bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(15*time.Minute))
+	if err != nil {
+		return "", err
+	}
+	return out.URL, nil
+}

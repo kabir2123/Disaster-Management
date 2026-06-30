@@ -36,13 +36,20 @@ export interface Incident {
   timestamp: string;
   updatedAt: string;
   reporterID: string;
+  reporterName?: string;
   severity: number;
   location: string;
   description: string;
   status: IncidentStatus;
   assignedTo?: string;
   evidenceKeys?: string[];
+  evidenceFiles?: EvidenceFile[];
   resolveNote?: string;
+}
+
+export interface EvidenceFile {
+  key: string;
+  url?: string;
 }
 
 export interface Resource {

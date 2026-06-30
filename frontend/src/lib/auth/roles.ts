@@ -8,7 +8,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export function canListIncidents(role: Role): boolean {
-  return role === "admin" || role === "responder" || role === "coordinator";
+  return role === "admin" || role === "responder" || role === "coordinator" || role === "citizen";
 }
 
 export function canAssignIncidents(role: Role): boolean {
