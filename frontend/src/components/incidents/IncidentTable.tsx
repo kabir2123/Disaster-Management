@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Incident } from "@/lib/types/models";
+import type { EvidenceFile, Incident } from "@/lib/types/models";
 import { evidenceURL, isImageEvidence } from "@/lib/api/incidents";
 import { SeverityBadge } from "./SeverityBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -96,7 +96,7 @@ export function IncidentTable({ incidents, showActions = true }: IncidentTablePr
 }
 
 function EvidenceSummary({ incident }: { incident: Incident }) {
-  const files =
+  const files: EvidenceFile[] =
     incident.evidenceFiles ??
     incident.evidenceKeys?.map((key) => ({ key })) ??
     [];
