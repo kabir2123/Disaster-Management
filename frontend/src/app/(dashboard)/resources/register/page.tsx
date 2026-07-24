@@ -59,7 +59,7 @@ export default function RegisterResourcePage() {
       <Card className="max-w-lg">
         <CardHeader
           title="New Resource"
-          subtitle="Resources are visible to admins, coordinators, and responders"
+          subtitle="Resources are visible to coordinators and responders"
         />
 
         <form onSubmit={handleSubmit} className="space-y-5">

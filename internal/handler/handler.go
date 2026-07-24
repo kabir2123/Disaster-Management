@@ -52,9 +52,9 @@ func (h *Handler) Router() http.Handler {
 	mux.HandleFunc("PATCH /incident/{district}/{id}/resolve", auth(h.resolveIncident, models.RoleAdmin, models.RoleResponder))
 	mux.HandleFunc("POST /incident/{district}/{id}/evidence", auth(h.uploadEvidence, models.RoleCitizen, models.RoleAdmin, models.RoleResponder))
 
-	mux.HandleFunc("POST /resource/register", auth(h.registerResource, models.RoleAdmin, models.RoleCoordinator))
-	mux.HandleFunc("GET /resource/{district}", auth(h.listResources, models.RoleAdmin, models.RoleCoordinator, models.RoleResponder))
-	mux.HandleFunc("PATCH /resource/{district}/{id}/status", auth(h.updateResourceStatus, models.RoleAdmin, models.RoleCoordinator))
+	mux.HandleFunc("POST /resource/register", auth(h.registerResource, models.RoleCoordinator))
+	mux.HandleFunc("GET /resource/{district}", auth(h.listResources, models.RoleCoordinator, models.RoleResponder))
+	mux.HandleFunc("PATCH /resource/{district}/{id}/status", auth(h.updateResourceStatus, models.RoleCoordinator))
 
 	return WithCORS(mux)
 }
@@ -223,6 +223,9 @@ func (h *Handler) listIncidents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if claims.Role == models.RoleResponder {
+		incidents = assignedToResponder(incidents, claims.UserID)
+	}
 	responses := h.incidentResponses(r.Context(), incidents)
 	writeJSON(w, http.StatusOK, responses)
 }
@@ -244,7 +247,21 @@ func (h *Handler) getIncident(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if claims.Role == models.RoleResponder && incident.AssignedTo != claims.UserID {
+		writeError(w, http.StatusForbidden, "incident is not assigned to you")
+		return
+	}
 	writeJSON(w, http.StatusOK, h.incidentResponse(r.Context(), *incident))
+}
+
+func assignedToResponder(incidents []models.Incident, responderID string) []models.Incident {
+	assigned := make([]models.Incident, 0, len(incidents))
+	for _, incident := range incidents {
+		if incident.AssignedTo == responderID {
+			assigned = append(assigned, incident)
+		}
+	}
+	return assigned
 }
 
 func (h *Handler) incidentResponses(ctx context.Context, incidents []models.Incident) []models.IncidentResponse {
@@ -288,6 +305,19 @@ func (h *Handler) assignIncident(w http.ResponseWriter, r *http.Request) {
 	var req assignRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.AssignedTo == "" {
 		writeError(w, http.StatusBadRequest, "assignedTo required")
+		return
+	}
+	responder, err := h.store.GetUserByID(r.Context(), req.AssignedTo)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusBadRequest, "responder not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if responder.Role != models.RoleResponder || responder.DistrictID != districtID {
+		writeError(w, http.StatusBadRequest, "assigned user must be a responder in this district")
 		return
 	}
 	incident, err := h.store.GetIncident(r.Context(), districtID, incidentID)

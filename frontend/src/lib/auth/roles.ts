@@ -24,11 +24,11 @@ export function canReportIncidents(role: Role): boolean {
 }
 
 export function canManageResources(role: Role): boolean {
-  return role === "admin" || role === "coordinator";
+  return role === "coordinator";
 }
 
 export function canViewResources(role: Role): boolean {
-  return role === "admin" || role === "coordinator" || role === "responder";
+  return role === "coordinator" || role === "responder";
 }
 
 export interface NavItem {

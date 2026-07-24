@@ -81,9 +81,9 @@ Import `postman/ResQ.postman_collection.json` into Postman.
 | PATCH | `/incident/{district}/{id}/assign` | Admin |
 | PATCH | `/incident/{district}/{id}/resolve` | Admin, Responder |
 | POST | `/incident/{district}/{id}/evidence` | Yes |
-| POST | `/resource/register` | Admin, Coordinator |
-| GET | `/resource/{district}` | Yes |
-| PATCH | `/resource/{district}/{id}/status` | Admin, Coordinator |
+| POST | `/resource/register` | Coordinator |
+| GET | `/resource/{district}` | Coordinator, Responder |
+| PATCH | `/resource/{district}/{id}/status` | Coordinator |
 | POST | `/sms/ingest` | No (webhook) |
 
 ## Roles

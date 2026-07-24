@@ -168,9 +168,9 @@ If you want the container to use a named AWS profile, add `AWS_PROFILE` to the c
 | `PATCH` | `/incident/{district}/{id}/assign`   | Admin                                     |
 | `PATCH` | `/incident/{district}/{id}/resolve`  | Admin, Responder                          |
 | `POST`  | `/incident/{district}/{id}/evidence` | Yes                                       |
-| `POST`  | `/resource/register`                 | Admin, Coordinator                        |
-| `GET`   | `/resource/{district}`               | Yes                                       |
-| `PATCH` | `/resource/{district}/{id}/status`   | Admin, Coordinator                        |
+| `POST`  | `/resource/register`                 | Coordinator                               |
+| `GET`   | `/resource/{district}`               | Coordinator, Responder                    |
+| `PATCH` | `/resource/{district}/{id}/status`   | Coordinator                               |
 | `POST`  | `/sms/ingest`                        | No webhook authentication in this version |
 
 

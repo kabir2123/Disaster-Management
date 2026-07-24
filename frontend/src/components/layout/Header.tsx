@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, Check, Copy, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS, canListIncidents } from "@/lib/auth/roles";
 import { listIncidents } from "@/lib/api/incidents";
@@ -20,6 +20,7 @@ export function Header({ title, subtitle }: HeaderProps) {
   const [search, setSearch] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!claims || !canListIncidents(claims.role)) {
@@ -57,6 +58,13 @@ export function Header({ title, subtitle }: HeaderProps) {
     event.preventDefault();
     const query = search.trim();
     router.push(query ? `/incidents?q=${encodeURIComponent(query)}` : "/incidents");
+  }
+
+  async function copyUserID() {
+    if (!claims) return;
+    await navigator.clipboard.writeText(claims.userID);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -138,9 +146,16 @@ export function Header({ title, subtitle }: HeaderProps) {
             <p className="text-sm font-bold text-foreground">
               {claims ? ROLE_LABELS[claims.role] : "User"}
             </p>
-            <p className="text-xs text-muted truncate max-w-[120px]">
-              {claims?.userID.slice(0, 8)}…
-            </p>
+            <button
+              type="button"
+              onClick={copyUserID}
+              className="flex max-w-[170px] items-center gap-1 text-xs text-muted hover:text-primary"
+              title="Copy my User ID"
+              aria-label="Copy my User ID"
+            >
+              <span className="truncate">{claims?.userID}</span>
+              {copied ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Copy className="h-3.5 w-3.5 shrink-0" />}
+            </button>
           </div>
         </div>
       </div>
