@@ -1,60 +1,69 @@
+import { Shield } from "lucide-react";
+
+// A solid split, no glass and no gradient. The left panel is a quiet status
+// board — the only colour on the whole screen is the severity ramp in the
+// legend, which is exactly the point.
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex">
-      {/* Cyclone Ready — crisis prep panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-sidebar">
-        <div className="absolute inset-0 bg-gradient-to-br from-sidebar via-[#24357a] to-primary opacity-90" />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/60">
-              Cyclone Ready
-            </p>
-            <h1 className="mt-4 text-4xl font-extrabold leading-tight">
-              Stay prepared.<br />Respond faster.
-            </h1>
-            <p className="mt-4 max-w-md text-white/70 text-lg">
-              Real-time incident reporting, resource coordination, and
-              district-wide emergency alerts — all in one command center.
-            </p>
+    <div className="flex min-h-screen">
+      <aside className="hidden w-[44%] flex-col justify-between border-r border-line bg-surface p-10 lg:flex">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-raised">
+            <Shield className="h-5 w-5 text-fg" strokeWidth={2} />
           </div>
-
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-alert">
-                Active Alert Zone
-              </p>
-              <p className="mt-2 text-lg font-bold">Monsoon Season 2026</p>
-              <p className="text-sm text-white/60 mt-1">
-                Report flooding, landslides, and fire emergencies in your district
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Incidents", value: "Live" },
-                { label: "Resources", value: "Tracked" },
-                { label: "Alerts", value: "SNS" },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-xl bg-white/5 border border-white/10 p-4 text-center"
-                >
-                  <p className="text-xs text-white/50">{stat.label}</p>
-                  <p className="text-sm font-bold mt-1">{stat.value}</p>
-                </div>
-              ))}
-            </div>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-fg">ResQ</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+              Incident console
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* DashStack — login form panel */}
-      <div className="flex flex-1 items-center justify-center p-6 sm:p-12 bg-background">
-        <div className="w-full max-w-md">{children}</div>
-      </div>
+        <div className="max-w-sm">
+          <h1 className="text-xl font-semibold leading-snug text-fg">
+            District incident coordination for disaster response.
+          </h1>
+          <p className="mt-2 text-[13px] text-muted">
+            Report, triage, assign, and resolve — one board for the people
+            working the emergency.
+          </p>
+
+          <div className="mt-8">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-faint">
+              Severity scale
+            </p>
+            <ul className="space-y-1.5">
+              {[
+                { n: 1, label: "Low", bar: "bg-sev-1" },
+                { n: 2, label: "Moderate", bar: "bg-sev-2" },
+                { n: 3, label: "Elevated", bar: "bg-sev-3" },
+                { n: 4, label: "High", bar: "bg-sev-4" },
+                { n: 5, label: "Critical", bar: "bg-sev-5" },
+              ].map((s) => (
+                <li key={s.n} className="flex items-center gap-2.5">
+                  <span className={`h-3.5 w-1 rounded-full ${s.bar}`} />
+                  <span className="font-mono text-xs tabular-nums text-muted">
+                    {s.n}/5
+                  </span>
+                  <span className="text-xs text-muted">{s.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <p className="font-mono text-[11px] text-faint">
+          Built for coordinators, responders, and the people who report.
+        </p>
+      </aside>
+
+      <main className="flex flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-sm">{children}</div>
+      </main>
     </div>
   );
 }

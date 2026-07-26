@@ -7,8 +7,10 @@ import { ApiClientError } from "@/lib/api/client";
 import { registerResource } from "@/lib/api/resources";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Notice } from "@/components/ui/States";
+import { cn } from "@/lib/utils";
 
 const RESOURCE_TYPES = [
   "vehicle",
@@ -42,7 +44,9 @@ export default function RegisterResourcePage() {
       router.push("/resources");
     } catch (err) {
       setError(
-        err instanceof ApiClientError ? err.message : "Registration failed"
+        err instanceof ApiClientError
+          ? err.message
+          : "Couldn't add the resource. Check your connection and try again."
       );
     } finally {
       setLoading(false);
@@ -52,34 +56,29 @@ export default function RegisterResourcePage() {
   return (
     <>
       <Header
-        title="Register Resource"
-        subtitle="Add vehicles, shelters, supplies, or equipment to your district inventory"
+        title="Add resource"
+        subtitle="Register a boat, shelter, vehicle, or supply so it can be tracked and assigned"
       />
 
-      <Card className="max-w-lg">
-        <CardHeader
-          title="New Resource"
-          subtitle="Resources are visible to coordinators and responders"
-        />
-
+      <Card className="max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-foreground mb-2">
-              Resource Type
-            </label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-muted">Type</label>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
               {RESOURCE_TYPES.map((t) => (
                 <button
                   key={t}
                   type="button"
+                  aria-pressed={type === t}
                   onClick={() => setType(t)}
-                  className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold capitalize transition-all ${
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-[13px] capitalize transition-colors",
                     type === t
-                      ? "border-primary bg-primary-light text-primary"
-                      : "border-border text-muted hover:border-primary/30"
-                  }`}
+                      ? "border-muted bg-raised font-medium text-fg"
+                      : "border-line text-muted hover:border-muted"
+                  )}
                 >
-                  {t.replace("_", " ")}
+                  {t.replace(/_/g, " ")}
                 </button>
               ))}
             </div>
@@ -94,14 +93,10 @@ export default function RegisterResourcePage() {
             required
           />
 
-          {error && (
-            <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-              {error}
-            </p>
-          )}
+          {error && <Notice>{error}</Notice>}
 
           <Button type="submit" loading={loading}>
-            Register Resource
+            Add resource
           </Button>
         </form>
       </Card>

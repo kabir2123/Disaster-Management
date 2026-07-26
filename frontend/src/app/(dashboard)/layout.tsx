@@ -12,18 +12,18 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-muted" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-canvas">
       <Sidebar />
-      <main className="pl-64">
-        <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
-      </main>
+      <div className="lg:pl-56">
+        <div className="mx-auto max-w-[100rem] px-4 py-5 sm:px-6">{children}</div>
+      </div>
     </div>
   );
 }

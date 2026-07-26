@@ -3,19 +3,25 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileText, Image as ImageIcon, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  FileQuestion,
+  Image as ImageIcon,
+  Upload,
+} from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { AlertBanner } from "@/components/layout/AlertBanner";
 import { SeverityBadge } from "@/components/incidents/SeverityBadge";
 import { StatusBadge } from "@/components/incidents/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
-import { Input, Textarea } from "@/components/ui/Input";
+import { Select, Textarea } from "@/components/ui/Input";
+import { ErrorState, Notice, Skeleton } from "@/components/ui/States";
+import { severityConfig, shortAge } from "@/lib/severity";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  canAssignIncidents,
-  canResolveIncidents,
-} from "@/lib/auth/roles";
+import { canAssignIncidents, canResolveIncidents } from "@/lib/auth/roles";
 import { ApiClientError } from "@/lib/api/client";
 import {
   assignIncident,
@@ -23,11 +29,12 @@ import {
   getIncident,
   getLocalEvidenceDataURL,
   isImageEvidence,
+  listResponders,
   requestEvidenceUpload,
   resolveIncident,
   uploadEvidenceFile,
 } from "@/lib/api/incidents";
-import type { Incident } from "@/lib/types/models";
+import type { Incident, Responder } from "@/lib/types/models";
 
 export default function IncidentDetailPage() {
   const params = useParams();
@@ -41,9 +48,12 @@ export default function IncidentDetailPage() {
   const [assignTo, setAssignTo] = useState("");
   const [resolveNote, setResolveNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
   const [uploadStatus, setUploadStatus] = useState("");
   const [uploadedPreviews, setUploadedPreviews] = useState<Record<string, string>>({});
+  const [responders, setResponders] = useState<Responder[]>([]);
   const canUploadEvidence = claims?.role !== "coordinator";
+  const canAssign = canAssignIncidents(claims?.role ?? "citizen");
 
   useEffect(() => {
     if (!districtID || !incidentID) return;
@@ -54,6 +64,14 @@ export default function IncidentDetailPage() {
       .finally(() => setLoading(false));
   }, [districtID, incidentID]);
 
+  // Load the assignable responders so an admin picks a name, not a UUID.
+  useEffect(() => {
+    if (!districtID || !canAssign) return;
+    listResponders(districtID)
+      .then(setResponders)
+      .catch(() => setResponders([]));
+  }, [districtID, canAssign]);
+
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault();
     if (!assignTo.trim()) return;
@@ -63,6 +81,7 @@ export default function IncidentDetailPage() {
       const updated = await assignIncident(districtID, incidentID, assignTo);
       setIncident(updated);
       setAssignTo("");
+      setActionNotice("Assigned.");
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Assign failed");
     } finally {
@@ -77,6 +96,7 @@ export default function IncidentDetailPage() {
     try {
       const updated = await resolveIncident(districtID, incidentID, resolveNote);
       setIncident(updated);
+      setActionNotice("Resolved.");
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Resolve failed");
     } finally {
@@ -89,7 +109,7 @@ export default function IncidentDetailPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadStatus("Uploading…");
+    setUploadStatus("Adding…");
     setError("");
     try {
       const { uploadURL, key } = await requestEvidenceUpload(
@@ -108,7 +128,7 @@ export default function IncidentDetailPage() {
         if (evidenceKeys.includes(key)) return current;
         return { ...current, evidenceKeys: [...evidenceKeys, key] };
       });
-      setUploadStatus("Evidence uploaded successfully");
+      setUploadStatus("Photo added.");
 
       getIncident(districtID, incidentID)
         .then(setIncident)
@@ -124,129 +144,166 @@ export default function IncidentDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="py-16 text-center text-muted">Loading incident…</div>
-    );
+    return <DetailSkeleton />;
   }
 
   if (!incident) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-danger font-semibold">{error || "Incident not found"}</p>
-        <Link href="/incidents" className="mt-4 inline-block text-primary font-bold">
-          ← Back to incidents
-        </Link>
-      </div>
+      <ErrorState
+        icon={FileQuestion}
+        title="Report not found"
+        message={
+          error ||
+          "This report may have been resolved and archived, or the link is wrong. Go back to the board to find it."
+        }
+        onRetry={undefined}
+      />
     );
   }
+
+  const config = severityConfig(incident.severity);
+  const resolved = incident.status === "resolved";
+  const evidence = evidenceItems(incident);
+  const assignedName = responders.find(
+    (r) => r.userID === incident.assignedTo
+  )?.name;
 
   return (
     <>
       <Link
         href="/incidents"
-        className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-primary"
+        className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Back to incidents
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to board
       </Link>
 
       <Header
         title={incident.location}
-        subtitle={`Incident ${incident.incidentID.slice(0, 8)}…`}
+        subtitle={`Reported ${shortAge(incident.timestamp)} ago · ${incident.incidentID}`}
       />
 
       {incident.severity === 5 && (
         <AlertBanner
-          level="critical"
-          message="Critical severity — emergency broadcast sent to district responders"
+          severity={5}
+          message="Critical — an emergency broadcast went to district responders when this was filed."
         />
       )}
-
       {incident.status === "escalated" && (
-        <AlertBanner
-          level="critical"
-          message="This incident has been escalated — unresolved for over 30 minutes"
-        />
+        <AlertBanner message="Escalated — this sat unresolved past 30 minutes. Assign a responder." />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Incident Details" />
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted">Severity</dt>
-              <dd className="mt-1">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Details panel with the severity rail down its edge */}
+        <div className="flex overflow-hidden rounded-md border border-line bg-surface lg:col-span-2">
+          <span
+            aria-hidden
+            className={cn("w-1 shrink-0", resolved ? "bg-line" : config.bar)}
+          />
+          <div className={cn("min-w-0 flex-1 p-4", resolved && "opacity-70")}>
+            <dl className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+              <Field label="Severity">
                 <SeverityBadge severity={incident.severity} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted">Status</dt>
-              <dd className="mt-1">
+              </Field>
+              <Field label="Status">
                 <StatusBadge status={incident.status} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted">Reported</dt>
-              <dd className="mt-1 text-sm font-semibold">
-                {new Date(incident.timestamp).toLocaleString()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-bold uppercase text-muted">Reporter</dt>
-              <dd className="mt-1 text-sm font-semibold">
-                {incident.reporterName || "Unknown citizen"}
-              </dd>
-              <dd className="mt-1 font-mono text-xs text-muted">{incident.reporterID}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-xs font-bold uppercase text-muted">Description</dt>
-              <dd className="mt-1 text-sm">
-                {incident.description || "No description provided"}
-              </dd>
-            </div>
-            {incident.assignedTo && (
-              <div>
-                <dt className="text-xs font-bold uppercase text-muted">Assigned To</dt>
-                <dd className="mt-1 font-mono text-xs">{incident.assignedTo}</dd>
-              </div>
-            )}
-            {incident.resolveNote && (
+              </Field>
+              <Field label="Reported">
+                <span className="font-mono text-xs text-fg">
+                  {new Date(incident.timestamp).toLocaleString("en-IN")}
+                </span>
+              </Field>
+              <Field label="Reporter">
+                <span className="text-[13px] text-fg">
+                  {incident.reporterName || "Unknown citizen"}
+                </span>
+                <span className="mt-0.5 block break-all font-mono text-[11px] text-faint">
+                  {incident.reporterID}
+                </span>
+              </Field>
               <div className="sm:col-span-2">
-                <dt className="text-xs font-bold uppercase text-muted">Resolution Note</dt>
-                <dd className="mt-1 text-sm">{incident.resolveNote}</dd>
+                <Field label="What's happening">
+                  <p className="text-[13px] leading-relaxed text-fg">
+                    {incident.description || (
+                      <span className="text-muted">No description given.</span>
+                    )}
+                  </p>
+                </Field>
               </div>
-            )}
-          </dl>
-        </Card>
+              {incident.assignedTo && (
+                <Field label="Assigned to">
+                  {assignedName ? (
+                    <span className="text-[13px] text-fg">{assignedName}</span>
+                  ) : (
+                    <span className="break-all font-mono text-xs text-fg">
+                      {incident.assignedTo}
+                    </span>
+                  )}
+                </Field>
+              )}
+              {incident.resolveNote && (
+                <div className="sm:col-span-2">
+                  <Field label="Resolution note">
+                    <p className="text-[13px] leading-relaxed text-fg">
+                      {incident.resolveNote}
+                    </p>
+                  </Field>
+                </div>
+              )}
+            </dl>
+          </div>
+        </div>
 
-        <div className="space-y-6">
-          {canAssignIncidents(claims?.role ?? "citizen") &&
-            incident.status !== "resolved" && (
-              <Card>
-                <CardHeader title="Assign Responder" />
-                <form onSubmit={handleAssign} className="space-y-4">
-                  <Input
-                    label="Responder User ID"
-                    placeholder="Paste responder userID"
+        <div className="space-y-4">
+          {canAssign && incident.status !== "resolved" && (
+            <Card>
+              <CardHeader
+                title="Assign responder"
+                subtitle={
+                  incident.assignedTo ? "Reassign to another team" : undefined
+                }
+              />
+              {responders.length === 0 ? (
+                <Notice>
+                  No responders in this district yet. Add responder accounts to
+                  assign this report.
+                </Notice>
+              ) : (
+                <form onSubmit={handleAssign} className="space-y-3">
+                  <Select
+                    label="Responder"
                     value={assignTo}
                     onChange={(e) => setAssignTo(e.target.value)}
                     required
+                    options={[
+                      { value: "", label: "Choose a responder…" },
+                      ...responders.map((r) => ({
+                        value: r.userID,
+                        label: r.name,
+                      })),
+                    ]}
                   />
-                  <Button type="submit" loading={actionLoading} className="w-full">
-                    Assign
+                  <Button
+                    type="submit"
+                    loading={actionLoading}
+                    disabled={!assignTo}
+                    className="w-full"
+                  >
+                    Assign responder
                   </Button>
                 </form>
-              </Card>
-            )}
+              )}
+            </Card>
+          )}
 
           {canResolveIncidents(claims?.role ?? "citizen") &&
             incident.status !== "resolved" && (
               <Card>
-                <CardHeader title="Resolve Incident" />
-                <form onSubmit={handleResolve} className="space-y-4">
+                <CardHeader title="Resolve" />
+                <form onSubmit={handleResolve} className="space-y-3">
                   <Textarea
-                    label="Resolution note"
-                    placeholder="Describe actions taken…"
+                    label="What was done?"
+                    placeholder="Action taken, outcome, anything to hand off…"
                     value={resolveNote}
                     onChange={(e) => setResolveNote(e.target.value)}
                   />
@@ -256,19 +313,22 @@ export default function IncidentDetailPage() {
                     loading={actionLoading}
                     className="w-full"
                   >
-                    Mark Resolved
+                    Mark resolved
                   </Button>
                 </form>
               </Card>
             )}
 
           <Card>
-            <CardHeader title="Evidence" />
+            <CardHeader
+              title="Evidence"
+              subtitle={evidence.length > 0 ? `${evidence.length} attached` : undefined}
+            />
             {canUploadEvidence && (
-              <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border py-8 hover:border-primary/40 hover:bg-primary-light/20 transition-all">
-                <Upload className="h-8 w-8 text-muted" />
-                <span className="text-sm font-semibold text-muted">
-                  Upload photo or document
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-line py-6 transition-colors hover:border-muted hover:bg-raised">
+                <Upload className="h-5 w-5 text-faint" />
+                <span className="text-xs font-medium text-muted">
+                  Add a photo or document
                 </span>
                 <input
                   type="file"
@@ -279,47 +339,48 @@ export default function IncidentDetailPage() {
               </label>
             )}
             {uploadStatus && (
-              <p className="mt-3 text-sm font-medium text-success">{uploadStatus}</p>
+              <p className="mt-2 text-xs text-muted">{uploadStatus}</p>
             )}
-            {evidenceItems(incident).length > 0 && (
-              <ul className="mt-4 space-y-3">
-                {evidenceItems(incident).map(({ key, url }) => {
+            {evidence.length > 0 && (
+              <ul className="mt-3 grid grid-cols-2 gap-2">
+                {evidence.map(({ key, url }) => {
                   const src = uploadedPreviews[key] || evidenceURL(key, url);
                   const isImage = src && isImageEvidence(src, key);
                   return (
-                  <li
-                    key={key}
-                    className="overflow-hidden rounded-xl border border-border bg-background"
-                  >
-                    {isImage ? (
-                      <div>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt={evidenceFilename(key)}
-                          className="h-44 w-full object-cover"
-                        />
-                        <div className="flex items-center gap-2 px-3 py-2">
-                          <ImageIcon className="h-4 w-4 text-primary" />
-                          <p className="truncate text-xs font-semibold text-foreground">
+                    <li
+                      key={key}
+                      className="overflow-hidden rounded-md border border-line bg-raised"
+                    >
+                      {isImage ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt={evidenceFilename(key)}
+                            className="h-24 w-full object-cover"
+                          />
+                          <p className="truncate px-2 py-1.5 text-[11px] text-muted">
                             {evidenceFilename(key)}
                           </p>
+                        </>
+                      ) : (
+                        <div className="flex h-full items-start gap-2 p-2">
+                          {isImageEvidence("", key) ? (
+                            <ImageIcon className="h-4 w-4 shrink-0 text-faint" />
+                          ) : (
+                            <FileText className="h-4 w-4 shrink-0 text-faint" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-[11px] font-medium text-fg">
+                              {evidenceFilename(key)}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-faint">
+                              Preview unavailable
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 px-3 py-3">
-                        <FileText className="h-5 w-5 shrink-0 text-primary" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {evidenceFilename(key)}
-                          </p>
-                          <p className="truncate font-mono text-xs text-muted">
-                            {key}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </li>
+                      )}
+                    </li>
                   );
                 })}
               </ul>
@@ -328,11 +389,59 @@ export default function IncidentDetailPage() {
         </div>
       </div>
 
-      {error && (
-        <p className="mt-4 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-          {error}
-        </p>
+      {actionNotice && !error && (
+        <div className="mt-4">
+          <Notice>{actionNotice}</Notice>
+        </div>
       )}
+      {error && (
+        <div className="mt-4">
+          <Notice>{error}</Notice>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted">
+        {label}
+      </dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <>
+      <Skeleton className="mb-3 h-3 w-24" />
+      <Skeleton className="mb-5 h-6 w-64" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 rounded-md border border-line bg-surface p-4 lg:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-16 w-full" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </div>
     </>
   );
 }

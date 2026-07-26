@@ -1,58 +1,134 @@
 @import "tailwindcss";
 
-/* DashStack + Cyclone Ready design tokens */
-:root {
-  --background: #f4f7fe;
-  --foreground: #2b3674;
-  --surface: #ffffff;
-  --sidebar: #1b2559;
-  --sidebar-hover: #24357a;
-  --sidebar-active: #4318ff;
-  --primary: #4318ff;
-  --primary-hover: #3311db;
-  --primary-light: #e9e3ff;
-  --muted: #a3aed0;
-  --border: #e0e5f2;
-  --success: #05cd99;
-  --warning: #ffb020;
-  --danger: #e53935;
-  --alert: #ff6b35;
-  --info: #4880ff;
-  --card-shadow: 0 18px 40px rgba(112, 144, 176, 0.12);
+/*
+  "Signal" — an operations console for disaster response.
+  Thesis: colour is a signal, not decoration. The neutral base is achromatic
+  slate on near-black; the ONLY colour in the product is the severity ramp.
+  Nothing else — no brand accent, no coloured buttons, no coloured links.
+*/
+
+@theme {
+  /* Neutral base (cool slate, near-black) */
+  --color-canvas: #0e1116; /* app background — the board */
+  --color-surface: #161b22; /* panels, table body, header bar */
+  --color-raised: #1c232b; /* row hover, inputs, menus */
+  --color-line: #2a313a; /* borders, dividers, rules */
+  --color-fg: #e6eaf0; /* primary text */
+  --color-muted: #8792a3; /* labels, secondary text */
+  --color-faint: #5c6675; /* mono IDs, timestamps, faint meta */
+
+  /* Severity ramp — the only colour, cold -> hot. Reserved absolutely. */
+  --color-sev-1: #4c8dff; /* Low       */
+  --color-sev-2: #3fb950; /* Moderate  */
+  --color-sev-3: #d9a426; /* Elevated  */
+  --color-sev-4: #f0883e; /* High      */
+  --color-sev-5: #f85149; /* Critical  */
+
+  /* Type: two deliberate faces, wired to next/font. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* One radius, small — applied to the whole scale so it can't drift. */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.25rem;
+  --radius-2xl: 0.25rem;
+  --radius-3xl: 0.25rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-hover: var(--sidebar-hover);
-  --color-sidebar-active: var(--sidebar-active);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-light: var(--primary-light);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
-  --color-alert: var(--alert);
-  --color-info: var(--info);
-  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
-  --shadow-card: var(--card-shadow);
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 13px; /* dense console base */
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Utility face carries tabular data — align digits by default. */
+  .font-mono {
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+
+  /* Visible keyboard focus everywhere, neutral (never a severity colour). */
+  :focus-visible {
+    outline: 2px solid var(--color-muted);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
+  }
+
+  /* Thin, quiet scrollbars in keeping with an ops tool. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+/* Leaflet, themed to the console: dark tiles, dark popups, quiet controls. */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md);
+}
+.leaflet-popup-content {
+  margin: 0.5rem 0.625rem;
+}
+.leaflet-popup-close-button {
+  color: var(--color-muted) !important;
+}
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border-color: var(--color-line);
+}
+.leaflet-bar a:hover {
+  background: var(--color-raised);
+}
+.leaflet-control-attribution {
+  background: rgba(22, 27, 34, 0.85) !important;
+  color: var(--color-faint) !important;
+}
+.leaflet-control-attribution a {
+  color: var(--color-muted) !important;
 }
 
-@keyframes pulse-alert {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.animate-pulse-alert {
-  animation: pulse-alert 2s ease-in-out infinite;
+/* Honour reduced-motion; there is almost nothing to reduce by design. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

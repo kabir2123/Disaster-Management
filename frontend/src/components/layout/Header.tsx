@@ -7,14 +7,17 @@ import { Bell, Check, Copy, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS, canListIncidents } from "@/lib/auth/roles";
 import { listIncidents } from "@/lib/api/incidents";
+import { SeverityBadge } from "@/components/incidents/SeverityBadge";
+import { shortAge } from "@/lib/severity";
 import type { Incident } from "@/lib/types/models";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  actions?: React.ReactNode;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, actions }: HeaderProps) {
   const { claims } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -50,7 +53,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             (incident.severity >= 4 && incident.status !== "resolved")
         )
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, 5),
+        .slice(0, 6),
     [incidents]
   );
 
@@ -68,49 +71,49 @@ export function Header({ title, subtitle }: HeaderProps) {
   }
 
   return (
-    <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold text-fg">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+      <div className="flex items-center gap-2">
+        {actions}
+        <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
           <input
             type="search"
-            placeholder="Search incidents..."
+            placeholder="Search reports…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="w-64 rounded-xl border border-border bg-surface py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="h-9 w-56 rounded-md border border-line bg-raised pl-8 pr-3 text-[13px] text-fg placeholder:text-faint focus:border-muted focus:outline-none"
           />
         </form>
+
         <div className="relative">
           <button
             type="button"
             onClick={() => setNotificationsOpen((open) => !open)}
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface text-muted hover:text-primary transition-colors"
-            aria-label="Notifications"
+            className="relative flex h-9 w-9 items-center justify-center rounded-md border border-line bg-raised text-muted hover:text-fg"
+            aria-label="Priority alerts"
             aria-expanded={notificationsOpen}
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-4 w-4" />
             {notifications.length > 0 && (
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-alert" />
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-fg" />
             )}
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-13 z-50 w-80 overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--card-shadow)]">
-              <div className="border-b border-border px-4 py-3">
-                <p className="text-sm font-bold text-foreground">Notifications</p>
-                <p className="text-xs text-muted">
-                  Critical and escalated incidents
-                </p>
+            <div className="absolute right-0 top-11 z-40 w-80 overflow-hidden rounded-md border border-line bg-surface shadow-lg shadow-black/40">
+              <div className="border-b border-line px-3 py-2.5">
+                <p className="text-[13px] font-medium text-fg">Priority alerts</p>
+                <p className="text-xs text-muted">Critical and escalated, unresolved</p>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="px-4 py-6 text-sm text-muted">
-                    No critical alerts right now
+                  <p className="px-3 py-6 text-center text-xs text-muted">
+                    Nothing critical right now
                   </p>
                 ) : (
                   notifications.map((incident) => (
@@ -118,18 +121,16 @@ export function Header({ title, subtitle }: HeaderProps) {
                       key={incident.incidentID}
                       href={`/incidents/${incident.incidentID}`}
                       onClick={() => setNotificationsOpen(false)}
-                      className="block border-b border-border/60 px-4 py-3 last:border-0 hover:bg-primary-light/30"
+                      className="block border-b border-line px-3 py-2.5 last:border-0 hover:bg-raised"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {incident.location}
-                        </p>
-                        <span className="rounded-full bg-alert/10 px-2 py-0.5 text-xs font-bold text-alert">
-                          S{incident.severity}
+                      <div className="flex items-center justify-between gap-2">
+                        <SeverityBadge severity={incident.severity} />
+                        <span className="font-mono text-[11px] tabular-nums text-faint">
+                          {shortAge(incident.updatedAt)}
                         </span>
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted">
-                        {incident.status} · {incident.description || "No description"}
+                      <p className="mt-1 truncate text-[13px] text-fg">
+                        {incident.location}
                       </p>
                     </Link>
                   ))
@@ -138,23 +139,28 @@ export function Header({ title, subtitle }: HeaderProps) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+
+        <div className="flex items-center gap-2 rounded-md border border-line bg-raised px-2.5 py-1.5">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-line font-mono text-[11px] font-medium text-fg">
             {claims?.userID.slice(0, 2).toUpperCase()}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-bold text-foreground">
+            <p className="text-[11px] font-medium leading-tight text-fg">
               {claims ? ROLE_LABELS[claims.role] : "User"}
             </p>
             <button
               type="button"
               onClick={copyUserID}
-              className="flex max-w-[170px] items-center gap-1 text-xs text-muted hover:text-primary"
-              title="Copy my User ID"
-              aria-label="Copy my User ID"
+              className="flex max-w-[150px] items-center gap-1 font-mono text-[10px] leading-tight text-faint hover:text-muted"
+              title="Copy your user ID"
+              aria-label="Copy your user ID"
             >
               <span className="truncate">{claims?.userID}</span>
-              {copied ? <Check className="h-3.5 w-3.5 shrink-0 text-success" /> : <Copy className="h-3.5 w-3.5 shrink-0" />}
+              {copied ? (
+                <Check className="h-3 w-3 shrink-0" />
+              ) : (
+                <Copy className="h-3 w-3 shrink-0" />
+              )}
             </button>
           </div>
         </div>

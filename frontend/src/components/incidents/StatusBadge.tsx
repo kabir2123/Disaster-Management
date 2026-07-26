@@ -1,18 +1,20 @@
 import { Badge } from "@/components/ui/Badge";
 import type { IncidentStatus } from "@/lib/types/models";
 
+// Status is neutral typography — no hue. Emphasis (strong vs. muted vs. faint)
+// carries the meaning: escalated reads loudest, resolved fades back.
 const STATUS_CONFIG: Record<
   IncidentStatus,
-  { label: string; variant: "default" | "success" | "warning" | "danger" | "info" | "muted" }
+  { label: string; tone: "default" | "strong" | "faint" | "outline" }
 > = {
-  open: { label: "Open", variant: "info" },
-  assigned: { label: "Assigned", variant: "default" },
-  in_progress: { label: "In Progress", variant: "warning" },
-  resolved: { label: "Resolved", variant: "success" },
-  escalated: { label: "Escalated", variant: "danger" },
+  open: { label: "Open", tone: "outline" },
+  assigned: { label: "Assigned", tone: "default" },
+  in_progress: { label: "In progress", tone: "default" },
+  escalated: { label: "Escalated", tone: "strong" },
+  resolved: { label: "Resolved", tone: "faint" },
 };
 
 export function StatusBadge({ status }: { status: IncidentStatus }) {
-  const config = STATUS_CONFIG[status] ?? { label: status, variant: "muted" as const };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  const config = STATUS_CONFIG[status] ?? { label: status, tone: "default" as const };
+  return <Badge tone={config.tone}>{config.label}</Badge>;
 }

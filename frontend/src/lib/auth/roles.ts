@@ -57,7 +57,7 @@ export function getNavItems(role: Role): NavItem[] {
   if (canManageResources(role)) {
     items.push({
       href: "/resources/register",
-      label: "Add Resource",
+      label: "Add resource",
       icon: "plus-circle",
     });
   }

@@ -39,6 +39,8 @@ export interface Incident {
   reporterName?: string;
   severity: number;
   location: string;
+  lat?: number;
+  lng?: number;
   description: string;
   status: IncidentStatus;
   assignedTo?: string;
@@ -50,6 +52,11 @@ export interface Incident {
 export interface EvidenceFile {
   key: string;
   url?: string;
+}
+
+export interface Responder {
+  userID: string;
+  name: string;
 }
 
 export interface Resource {

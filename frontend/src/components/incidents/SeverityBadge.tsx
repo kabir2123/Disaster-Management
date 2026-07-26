@@ -1,38 +1,38 @@
-import { Badge } from "@/components/ui/Badge";
+import { severityConfig } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 
-const SEVERITY_CONFIG: Record<
-  number,
-  { label: string; variant: "success" | "info" | "warning" | "danger" | "default"; ring: string }
-> = {
-  1: { label: "Low", variant: "success", ring: "ring-success/30" },
-  2: { label: "Moderate", variant: "info", ring: "ring-info/30" },
-  3: { label: "Elevated", variant: "warning", ring: "ring-warning/30" },
-  4: { label: "High", variant: "danger", ring: "ring-danger/30" },
-  5: { label: "Critical", variant: "danger", ring: "ring-danger/50" },
-};
-
-export function SeverityBadge({ severity }: { severity: number }) {
-  const config =
-    SEVERITY_CONFIG[severity] ?? {
-      label: `S${severity}`,
-      variant: "default" as const,
-      ring: "ring-primary/30",
-    };
-
+// The severity chip: the tinted "N/5" tag. Colour + numeral, always together.
+// In dense rows it stays compact (number only); the word label is for detail
+// views where there's room. The word is what used to overflow the SEV column.
+export function SeverityBadge({
+  severity,
+  compact = false,
+}: {
+  severity: number;
+  compact?: boolean;
+}) {
+  const config = severityConfig(severity);
   return (
-    <Badge
-      variant={config.variant}
+    <span
       className={cn(
-        severity === 5 && "animate-pulse-alert ring-2",
-        config.ring
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
+        "font-mono text-[11px] font-medium tabular-nums whitespace-nowrap",
+        config.tint,
+        config.text
       )}
+      title={config.label}
     >
-      {config.label} · {severity}/5
-    </Badge>
+      <span className="font-semibold">{severity}/5</span>
+      {!compact && (
+        <span className="uppercase tracking-wide opacity-80">{config.label}</span>
+      )}
+    </span>
   );
 }
 
+// Severity picker for the report form: neutral until selected, then the row
+// lights up in that severity's colour so the reporter sees exactly what they
+// are declaring.
 export function SeveritySelector({
   value,
   onChange,
@@ -41,25 +41,27 @@ export function SeveritySelector({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-5 gap-1.5">
       {[1, 2, 3, 4, 5].map((level) => {
-        const config = SEVERITY_CONFIG[level];
+        const config = severityConfig(level);
         const selected = value === level;
         return (
           <button
             key={level}
             type="button"
+            aria-pressed={selected}
             onClick={() => onChange(level)}
             className={cn(
-              "rounded-xl border-2 py-3 text-center text-sm font-bold transition-all",
+              "flex flex-col items-center gap-1 rounded-md border py-2.5 transition-colors",
               selected
-                ? "border-primary bg-primary-light text-primary scale-105"
-                : "border-border bg-surface text-muted hover:border-primary/40",
-              level === 5 && selected && "border-danger bg-danger/10 text-danger animate-pulse-alert"
+                ? cn("border-transparent", config.tint, config.text)
+                : "border-line text-muted hover:border-muted"
             )}
           >
-            {level}
-            <span className="block text-[10px] font-medium mt-0.5 opacity-70">
+            <span className="font-mono text-base font-semibold tabular-nums">
+              {level}
+            </span>
+            <span className="text-[10px] uppercase tracking-wide">
               {config.label}
             </span>
           </button>

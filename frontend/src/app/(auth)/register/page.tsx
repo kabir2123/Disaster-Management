@@ -2,20 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Shield } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import { register as apiRegister } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
+import { Notice } from "@/components/ui/States";
 import type { Role } from "@/lib/types/models";
 
 const ROLES: { value: Role; label: string }[] = [
-  { value: "citizen", label: "Citizen" },
-  { value: "responder", label: "Responder" },
-  { value: "admin", label: "District Admin" },
-  { value: "coordinator", label: "Relief Coordinator" },
+  { value: "citizen", label: "Citizen — report and track" },
+  { value: "responder", label: "Responder — work assigned reports" },
+  { value: "admin", label: "District admin — assign and resolve" },
+  { value: "coordinator", label: "Coordinator — manage resources" },
 ];
 
 export default function RegisterPage() {
@@ -24,7 +23,7 @@ export default function RegisterPage() {
   const [contact, setContact] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("citizen");
-  const [districtID, setDistrictID] = useState("district-a");
+  const [districtID, setDistrictID] = useState("ernakulam");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -45,11 +44,13 @@ export default function RegisterPage() {
       try {
         await login(normalizedContact, password);
       } catch {
-        setError("Account created. Sign in with the same contact and password.");
+        setError("Account created. Sign in with the same email and password.");
       }
     } catch (err) {
       setError(
-        err instanceof ApiClientError ? err.message : "Registration failed"
+        err instanceof ApiClientError
+          ? err.message
+          : "Couldn't create the account. Check your connection and try again."
       );
     } finally {
       setLoading(false);
@@ -57,14 +58,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card padding="lg" className="border-0 shadow-[var(--card-shadow)]">
-      <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white">
-          <Shield className="h-7 w-7" />
-        </div>
-        <h2 className="text-2xl font-bold text-foreground">Create account</h2>
-        <p className="mt-2 text-sm text-muted">
-          Join your district&apos;s emergency response network
+    <div>
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-fg">Create account</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          Join a district&apos;s response board.
         </p>
       </div>
 
@@ -96,30 +94,26 @@ export default function RegisterPage() {
           options={ROLES}
         />
         <Input
-          label="District ID"
+          label="District"
           value={districtID}
           onChange={(e) => setDistrictID(e.target.value)}
           required
-          placeholder="district-a"
+          placeholder="ernakulam"
         />
 
-        {error && (
-          <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-            {error}
-          </p>
-        )}
+        {error && <Notice>{error}</Notice>}
 
-        <Button type="submit" loading={loading} className="w-full" size="lg">
+        <Button type="submit" loading={loading} className="w-full">
           Create account
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted">
-        Already registered?{" "}
-        <Link href="/login" className="font-bold text-primary hover:underline">
+      <p className="mt-4 text-center text-xs text-muted">
+        Already have an account?{" "}
+        <Link href="/login" className="text-fg underline underline-offset-2">
           Sign in
         </Link>
       </p>
-    </Card>
+    </div>
   );
 }

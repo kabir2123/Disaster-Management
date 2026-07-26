@@ -1,15 +1,21 @@
 import { apiRequest } from "@/lib/api/client";
-import type { EvidenceResponse, Incident } from "@/lib/types/models";
+import type { EvidenceResponse, Incident, Responder } from "@/lib/types/models";
 
 export interface ReportIncidentPayload {
   severity: number;
   location: string;
+  lat?: number;
+  lng?: number;
   description: string;
   districtID?: string;
 }
 
 export function listIncidents(districtID: string) {
   return apiRequest<Incident[]>(`/incident/${districtID}`, { method: "GET" });
+}
+
+export function listResponders(districtID: string) {
+  return apiRequest<Responder[]>(`/responders/${districtID}`, { method: "GET" });
 }
 
 export function getIncident(districtID: string, incidentID: string) {

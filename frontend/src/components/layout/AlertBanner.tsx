@@ -1,23 +1,31 @@
 import { AlertTriangle } from "lucide-react";
+import { severityConfig } from "@/lib/severity";
+import { cn } from "@/lib/utils";
 
-interface AlertBannerProps {
+// A single-line alert strip. Neutral by default; it only takes severity colour
+// when the banner is literally about a severity level (a critical broadcast).
+// No animation — urgency is carried by placement and wording, not motion.
+export function AlertBanner({
+  message,
+  severity,
+}: {
   message: string;
-  level?: "warning" | "critical";
-}
-
-export function AlertBanner({ message, level = "warning" }: AlertBannerProps) {
-  const isCritical = level === "critical";
+  severity?: number;
+}) {
+  const config = severity ? severityConfig(severity) : null;
 
   return (
     <div
-      className={`mb-6 flex items-center gap-3 rounded-2xl px-5 py-4 ${
-        isCritical
-          ? "bg-danger/10 border border-danger/30 text-danger animate-pulse-alert"
-          : "bg-alert/10 border border-alert/30 text-alert"
-      }`}
+      className={cn(
+        "mb-4 flex items-center gap-2.5 rounded-md border border-line bg-surface px-3 py-2.5",
+        config ? cn("border-l-2", config.border, config.tint) : "border-l-2 border-l-muted"
+      )}
     >
-      <AlertTriangle className={`h-5 w-5 shrink-0 ${isCritical ? "animate-bounce" : ""}`} />
-      <p className="text-sm font-semibold">{message}</p>
+      <AlertTriangle
+        className={cn("h-4 w-4 shrink-0", config ? config.text : "text-muted")}
+        strokeWidth={2}
+      />
+      <p className="text-[13px] text-fg">{message}</p>
     </div>
   );
 }
