@@ -52,6 +52,8 @@ func (h *Handler) Router() http.Handler {
 	mux.HandleFunc("PATCH /incident/{district}/{id}/resolve", auth(h.resolveIncident, models.RoleAdmin, models.RoleResponder))
 	mux.HandleFunc("POST /incident/{district}/{id}/evidence", auth(h.uploadEvidence, models.RoleCitizen, models.RoleAdmin, models.RoleResponder))
 
+	mux.HandleFunc("GET /responders/{district}", auth(h.listResponders, models.RoleAdmin))
+
 	mux.HandleFunc("POST /resource/register", auth(h.registerResource, models.RoleCoordinator))
 	mux.HandleFunc("GET /resource/{district}", auth(h.listResources, models.RoleCoordinator, models.RoleResponder))
 	mux.HandleFunc("PATCH /resource/{district}/{id}/status", auth(h.updateResourceStatus, models.RoleCoordinator))
@@ -163,10 +165,12 @@ func normalizeContact(contact string) string {
 }
 
 type reportIncidentRequest struct {
-	Severity    int    `json:"severity"`
-	Location    string `json:"location"`
-	Description string `json:"description"`
-	DistrictID  string `json:"districtID"`
+	Severity    int     `json:"severity"`
+	Location    string  `json:"location"`
+	Lat         float64 `json:"lat"`
+	Lng         float64 `json:"lng"`
+	Description string  `json:"description"`
+	DistrictID  string  `json:"districtID"`
 }
 
 func (h *Handler) reportIncident(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +201,8 @@ func (h *Handler) reportIncident(w http.ResponseWriter, r *http.Request) {
 		ReporterID:  claims.UserID,
 		Severity:    req.Severity,
 		Location:    req.Location,
+		Lat:         req.Lat,
+		Lng:         req.Lng,
 		Description: req.Description,
 		Status:      models.StatusOpen,
 	}
@@ -252,6 +258,32 @@ func (h *Handler) getIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, h.incidentResponse(r.Context(), *incident))
+}
+
+type responderSummary struct {
+	UserID string `json:"userID"`
+	Name   string `json:"name"`
+}
+
+// listResponders backs the assignment picker: the responders an admin can
+// assign an incident to, in their own district. Replaces pasting a raw userID.
+func (h *Handler) listResponders(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.Claims(r)
+	districtID := r.PathValue("district")
+	if districtID != claims.DistrictID {
+		writeError(w, http.StatusForbidden, "district mismatch")
+		return
+	}
+	users, err := h.store.ListUsersByDistrictRole(r.Context(), districtID, models.RoleResponder)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	summaries := make([]responderSummary, 0, len(users))
+	for _, u := range users {
+		summaries = append(summaries, responderSummary{UserID: u.UserID, Name: u.Name})
+	}
+	writeJSON(w, http.StatusOK, summaries)
 }
 
 func assignedToResponder(incidents []models.Incident, responderID string) []models.Incident {

@@ -38,6 +38,8 @@ type Incident struct {
 	ReporterID   string   `dynamodbav:"reporterID" json:"reporterID"`
 	Severity     int      `dynamodbav:"severity" json:"severity"`
 	Location     string   `dynamodbav:"location" json:"location"`
+	Lat          float64  `dynamodbav:"lat,omitempty" json:"lat,omitempty"`
+	Lng          float64  `dynamodbav:"lng,omitempty" json:"lng,omitempty"`
 	Description  string   `dynamodbav:"description" json:"description"`
 	Status       string   `dynamodbav:"status" json:"status"`
 	AssignedTo   string   `dynamodbav:"assignedTo,omitempty" json:"assignedTo,omitempty"`

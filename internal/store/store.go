@@ -133,6 +133,46 @@ func (s *Store) GetUserByContact(ctx context.Context, contact string) (*models.U
 	return &users[0], nil
 }
 
+// ListUsersByDistrictRole returns users of a given role in a district. The
+// users table is keyed only by userID, so this is a filtered scan — fine at
+// district scale; a districtID-role GSI would be the move if this grew.
+func (s *Store) ListUsersByDistrictRole(ctx context.Context, districtID, role string) ([]models.User, error) {
+	input := &dynamodb.ScanInput{
+		TableName:        aws.String(s.usersTable),
+		FilterExpression: aws.String("districtID = :d AND #r = :r"),
+		ExpressionAttributeNames: map[string]string{
+			"#r": "role",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":d": &types.AttributeValueMemberS{Value: districtID},
+			":r": &types.AttributeValueMemberS{Value: role},
+		},
+	}
+
+	users := []models.User{}
+	for {
+		out, err := s.client.Scan(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range out.Items {
+			var user models.User
+			if err := attributevalue.UnmarshalMap(item, &user); err != nil {
+				return nil, err
+			}
+			users = append(users, user)
+		}
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		input.ExclusiveStartKey = out.LastEvaluatedKey
+	}
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].Name < users[j].Name
+	})
+	return users, nil
+}
+
 func (s *Store) CreateIncident(ctx context.Context, incident models.Incident) error {
 	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(s.incidentsTable),

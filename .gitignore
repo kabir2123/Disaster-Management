@@ -2,6 +2,9 @@
 /bin/
 /bootstrap
 *.exe
+# Go binaries built into the repo root (e.g. `go build ./cmd/seed`)
+/seed
+/api
 
 # SAM
 .aws-sam/
