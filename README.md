@@ -10,7 +10,11 @@ The backend is a Go service that runs on AWS Lambda (or as a plain HTTP server
 locally). The frontend is a Next.js app. Everything is scoped to a *district*,
 so a coordinator only ever sees their own area.
 
-<!-- Screenshots: drop board.png / map.png into docs/ and link them here. -->
+
+
+![alt text](image.png)
+![alt text](<Screenshot 2026-07-27 at 10.25.34 AM.png>)
+
 
 ## Who uses it
 
@@ -181,12 +185,4 @@ After deploy, point the frontend's `NEXT_PUBLIC_API_URL` at the API Gateway URL
 (including the `/prod` stage). CI (GitHub Actions) runs `go test`, builds the
 Lambdas, and validates the SAM template on every push.
 
-## Possible next steps
 
-Deliberately left as a roadmap rather than half-built:
-
-- **Live board** — push new reports to every coordinator via API Gateway
-  WebSockets + DynamoDB Streams, instead of fetching on load.
-- **Resource dispatch** — link a resource to an incident in one atomic
-  cross-table write, closing the coordination loop.
-- **Incident timeline** — an append-only history of who did what, when.
