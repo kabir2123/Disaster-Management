@@ -75,15 +75,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-4 rounded-md border border-line bg-surface px-3 py-2.5">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-faint">
-          Demo login
-        </p>
-        <p className="mt-1 font-mono text-xs text-muted">
-          admin@ernakulam.test · demo1234
-        </p>
-      </div>
-
       <p className="mt-4 text-center text-xs text-muted">
         No account yet?{" "}
         <Link href="/register" className="text-fg underline underline-offset-2">
